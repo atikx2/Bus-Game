@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Capacitor generated platform projects (CI te notun kore toiri hoy)
+android/
+ios/
+
+# Build output
+dist/
+.gradle/
+*.apk
+*.aab
+
+# Signing keys - kokhono commit korben na
+*.keystore
+*.jks
+keystore.properties
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

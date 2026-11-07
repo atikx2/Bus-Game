@@ -4,6 +4,32 @@ Read this first if you are a new session. It explains what the user wants, what 
 
 ---
 
+## 0. SESSION UPDATE — 2026-11-08 (read this before section 3)
+
+**Repo has changed. Section 3 below is partly out of date.**
+
+- The repo is now `https://github.com/atikx2/Bus-Game.git` (remote `origin` is set). Working branch for the AI session: `arena/80240ee7-bus-game`.
+- The old sandbox folders `/home/user/bd-bus-sim/` and `/home/user/bus-game/` **no longer exist**. They were in a previous sandbox and are gone.
+- **The Babylon game code is gone too.** `www/index.html` (the playable game) and `www/babylon.js` were never committed, so they cannot be recovered from git. The old prototype has to be **rebuilt from the spec in section 3** (that section is a full spec, so rebuilding is possible).
+- What exists in the repo right now:
+
+  | File | State |
+  |---|---|
+  | `www/index.html` | **placeholder only** (no game) |
+  | `package.json` | Capacitor 6 deps |
+  | `package-lock.json` | generated, needed by `npm ci` |
+  | `capacitor.config.json` | `com.bdbus.sim` / "BD Bus Sim" / webDir `www` |
+  | `.github/workflows/pages.yml` | Pages deploy |
+  | `.github/workflows/build-apk.yml` | Android debug APK |
+  | `.gitignore` | ignores `node_modules/`, `android/`, `ios/`, `*.apk` |
+  | `README.md` | Bangla user instructions |
+  | `PROJECT_BRIEF.md` | this file (renamed from `PROJECT_BRIEF (1).md`) |
+
+- Sandbox check (2026-11-08): Node v22.22.3, npm 10.9.8, Python 3.11.2, git 2.39.5, gh 2.23.0. **No `java`, no Android SDK** → an APK cannot be built locally; the APK workflow can only be verified by running it on GitHub Actions.
+- Next step agreed with the user: CI/workflow first, then rebuild the Babylon game into `www/index.html`.
+
+---
+
 ## 1. The user's goal (in their words, paraphrased)
 
 - The user is in Bangladesh (Dhaka, Asia/Dhaka timezone). They prefer replies in Bangla or Banglish (Bangla written in English letters). Keep replies short, clear, and practical.
@@ -80,15 +106,10 @@ There are **three** project folders under `/home/user/`:
 
 ## 5. Things the user must do (cannot be done by the AI)
 
-1. Create GitHub account and repo `bd-bus-sim` (public or private).
-2. From `/home/user/bus-game` (download the folder or re-create), run:
-   ```
-   git remote add origin https://github.com/<USERNAME>/bd-bus-sim.git
-   git push -u origin main
-   ```
-   The AI has no GitHub credentials, so it cannot push. Git credentials are in the user's environment, not in the sandbox.
-3. Settings -> Pages -> Source: GitHub Actions.
-4. Check Actions tab for "Deploy to GitHub Pages" and "Build Android APK". Download `bd-bus-sim-apk` artifact, install `app-debug.apk` on phone (allow unknown sources).
+1. ~~Create GitHub account and repo~~ **DONE** — repo is `atikx2/Bus-Game`, remote `origin` is already configured.
+2. Nothing to do: the AI session can push to the session branch directly.
+3. Settings -> Pages -> Source: **GitHub Actions** (ekbar e korte hobe, otherwise Pages deploy job fail korbe).
+4. Actions tab check korun: "Deploy to GitHub Pages" ar "Build Android APK". `bd-bus-sim-apk` artifact download kore `app-debug.apk` phone e install korun (allow unknown sources).
 
 ## 6. Known limitations / TODO list (priority order)
 
