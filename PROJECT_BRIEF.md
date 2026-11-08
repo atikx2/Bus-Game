@@ -4,6 +4,46 @@ Read this first if you are a new session. It explains what the user wants, what 
 
 ---
 
+## 0. SESSION UPDATE — 2026-11-08 (read this before section 3)
+
+**Repo has changed. Section 3 below is partly out of date.**
+
+- The repo is now `https://github.com/atikx2/Bus-Game.git` (remote `origin` is set). Working branch for the AI session: `arena/80240ee7-bus-game`.
+- The old sandbox folders `/home/user/bd-bus-sim/` and `/home/user/bus-game/` **no longer exist**. They were in a previous sandbox and are gone.
+- **The Babylon game code is gone too.** `www/index.html` (the playable game) and `www/babylon.js` were never committed, so they cannot be recovered from git. The old prototype has to be **rebuilt from the spec in section 3** (that section is a full spec, so rebuilding is possible).
+- What exists in the repo right now:
+
+  | File | State |
+  |---|---|
+  | `www/index.html` | **placeholder only** (no game) |
+  | `package.json` | Capacitor 6 deps |
+  | `package-lock.json` | generated, needed by `npm ci` |
+  | `capacitor.config.json` | `com.bdbus.sim` / "BD Bus Sim" / webDir `www` |
+  | `.github/workflows/pages.yml` | Pages deploy |
+  | `.github/workflows/build-apk.yml` | Android debug APK |
+  | `.gitignore` | ignores `node_modules/`, `android/`, `ios/`, `*.apk` |
+  | `README.md` | Bangla user instructions |
+  | `PROJECT_BRIEF.md` | this file (renamed from `PROJECT_BRIEF (1).md`) |
+
+- Sandbox check (2026-11-08): Node v22.22.3, npm 10.9.8, Python 3.11.2, git 2.39.5, gh 2.23.0. **No `java`, no Android SDK** → an APK cannot be built locally; the APK workflow can only be verified by running it on GitHub Actions.
+- Next step agreed with the user: CI/workflow first, then rebuild the Babylon game into `www/index.html`.
+
+### 2026-11-08 — APK workflow verified + game rebuilt
+
+- **APK CI verified green**: run `42403941876` → `conclusion=success`, artifact `bd-bus-sim-apk` = 3,367,553 bytes. Pages workflow has NOT run yet (only triggers on push to `main`); user still has to set Settings → Pages → Source = GitHub Actions.
+- **Game rebuilt from scratch** (the old prototype code was unrecoverable). New structure:
+  - `www/js/core.js` — pure-JS simulation, UMD. Route = closed harmonic loop, **1626 m**, min radius 68 m, sampled every 2 m. Bus physics: diesel torque curve, 5-speed auto gearbox + RPM, longitudinal force balance (drive/drag/rolling/brake/engine-brake), kinematic bicycle model with a grip limit (`mu*g`), off-road scrub, car-following constraint, collisions, 6 bus stops, fares, laps, scoring. Optional **assist** (curvature look-ahead + lane hold + auto-brake for traffic).
+  - `www/js/graphics.js` — Babylon presentation layer, UMD. PBR materials (clearcoat paint, metal, glass), sun + hemispheric + shadows, procedural IBL via `RawCubeTexture`, gradient sky dome, divided boulevard with raised concrete median, two opposing carriageways, lane marks, kerbs and generated asphalt grain/cracks, clustered avenue-tree crowns, cross-arm streetlights, detailed procedural CNG/auto-rickshaws, procedural bus with steerable front wheels, chase camera with speed FOV + crash shake. Canvas-only textures are skipped when `document` is missing so it runs headless.
+  - `www/index.html` — HUD (speed/gear/RPM/score/fare/passengers/lap/FPS), Bangla toasts, touch buttons, keyboard, fixed 120 Hz timestep with accumulator, adaptive quality, WebAudio procedural engine/horn/crash.
+  - `www/babylon.js` — Babylon **8.34.0** UMD, vendored from npm (7.2 MB).
+- **Tests** (both run in Node, no browser needed):
+  - `node test/core.test.js` → **30 passed**
+  - `node test/scene.test.js` → **11 passed** (uses `BABYLON.NullEngine`)
+- Playability measured headlessly (assist on, throttle 0.85, 8 traffic vehicles): 0 crashes, 0 scrapes, lap ≈ 172 s, avg ≈ 34 km/h.
+- **Still unverified**: nothing has been looked at in a real browser/GPU. Visual quality, actual phone FPS and WebGL behaviour are unconfirmed.
+
+---
+
 ## 1. The user's goal (in their words, paraphrased)
 
 - The user is in Bangladesh (Dhaka, Asia/Dhaka timezone). They prefer replies in Bangla or Banglish (Bangla written in English letters). Keep replies short, clear, and practical.
@@ -80,15 +120,10 @@ There are **three** project folders under `/home/user/`:
 
 ## 5. Things the user must do (cannot be done by the AI)
 
-1. Create GitHub account and repo `bd-bus-sim` (public or private).
-2. From `/home/user/bus-game` (download the folder or re-create), run:
-   ```
-   git remote add origin https://github.com/<USERNAME>/bd-bus-sim.git
-   git push -u origin main
-   ```
-   The AI has no GitHub credentials, so it cannot push. Git credentials are in the user's environment, not in the sandbox.
-3. Settings -> Pages -> Source: GitHub Actions.
-4. Check Actions tab for "Deploy to GitHub Pages" and "Build Android APK". Download `bd-bus-sim-apk` artifact, install `app-debug.apk` on phone (allow unknown sources).
+1. ~~Create GitHub account and repo~~ **DONE** — repo is `atikx2/Bus-Game`, remote `origin` is already configured.
+2. Nothing to do: the AI session can push to the session branch directly.
+3. Settings -> Pages -> Source: **GitHub Actions** (ekbar e korte hobe, otherwise Pages deploy job fail korbe).
+4. Actions tab check korun: "Deploy to GitHub Pages" ar "Build Android APK". `bd-bus-sim-apk` artifact download kore `app-debug.apk` phone e install korun (allow unknown sources).
 
 ## 6. Known limitations / TODO list (priority order)
 

@@ -1,0 +1,53 @@
+name: Deploy to GitHub Pages
+
+# www/ folder ta GitHub Pages e deploy kore.
+# Settings -> Pages -> Source = "GitHub Actions" korte hobe (ekbar).
+on:
+  push:
+    # 'arena/**' = agent/session branch gulo, jate main e merge na korei
+    # phone e preview link (https://atikx2.github.io/Bus-Game/) pawa jay.
+    branches: [main, 'arena/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Ekta deploy sesh na howa porjonto notun deploy ke damriye rakhe.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check web folder
+        run: |
+          mkdir -p www
+          if [ ! -f www/index.html ]; then
+            echo "::warning::www/index.html nei - Pages e khali placeholder jabe."
+            printf '<!doctype html><meta charset="utf-8"><title>BD Bus Sim</title><h1>BD Bus Sim</h1><p>Game file ekhono add hoy nai.</p>' > www/index.html
+          fi
+          echo "www/ er moddhe ja ache:"
+          ls -la www
+
+      - name: Setup Pages
+        id: setup-pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload www/ as Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: www
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

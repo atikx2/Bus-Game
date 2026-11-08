@@ -1,0 +1,11 @@
+{
+  "appId": "com.bdbus.sim",
+  "appName": "BD Bus Sim",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

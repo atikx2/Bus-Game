@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>BD Bus Sim</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+    background: #0d1117; color: #e6edf3;
+    font-family: system-ui, -apple-system, "Noto Sans Bengali", "Hind Siliguri", sans-serif;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+  /* ---------------- HUD ---------------- */
+  #hud {
+    position: fixed; top: max(8px, env(safe-area-inset-top)); left: 8px;
+    padding: 8px 11px; border-radius: 10px;
+    background: rgba(10,14,20,.58); backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,.12);
+    font-size: 12px; line-height: 1.5; pointer-events: none; min-width: 128px;
+  }
+  #speed { font-size: 30px; font-weight: 700; line-height: 1; letter-spacing: -.5px; }
+  #speed small { font-size: 12px; font-weight: 500; opacity: .7; margin-left: 2px; }
+  .row { display: flex; justify-content: space-between; gap: 10px; opacity: .92; }
+  .row b { font-variant-numeric: tabular-nums; }
+  #rpmbar { height: 4px; border-radius: 3px; background: rgba(255,255,255,.16); margin: 5px 0 4px; overflow: hidden; }
+  #rpmfill { height: 100%; width: 0%; background: linear-gradient(90deg,#4ade80,#facc15 70%,#ef4444); transition: width .06s linear; }
+  #gear { font-weight: 700; color: #7ee787; }
+
+  #stops {
+    position: fixed; top: max(8px, env(safe-area-inset-top)); right: 8px;
+    padding: 7px 11px; border-radius: 10px; text-align: right;
+    background: rgba(10,14,20,.58); backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,.12);
+    font-size: 12px; pointer-events: none;
+  }
+  #stops .nm { font-size: 15px; font-weight: 600; color: #ffd166; }
+
+  #toast {
+    position: fixed; left: 50%; top: 22%; transform: translateX(-50%);
+    padding: 9px 18px; border-radius: 999px; font-size: 15px; font-weight: 600;
+    background: rgba(10,14,20,.82); border: 1px solid rgba(255,255,255,.18);
+    opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap;
+  }
+  #toast.on { opacity: 1; }
+
+  /* ---------------- touch controls ---------------- */
+  #pad { position: fixed; inset: auto 0 0 0; height: 34vh; pointer-events: none; display: none; }
+  #pad.on { display: block; }
+  .btn {
+    position: absolute; display: flex; align-items: center; justify-content: center;
+    border-radius: 50%; background: rgba(255,255,255,.13);
+    border: 1px solid rgba(255,255,255,.28); color: #fff;
+    font-size: 22px; font-weight: 700; pointer-events: auto; touch-action: none;
+    backdrop-filter: blur(4px);
+  }
+  .btn.act { background: rgba(126,231,135,.42); border-color: #7ee787; }
+  #bl, #br { width: 74px; height: 74px; bottom: max(18px, env(safe-area-inset-bottom)); }
+  #bl { left: 16px; } #br { left: 102px; }
+  #bg { width: 92px; height: 92px; right: 16px; bottom: max(58px, calc(env(safe-area-inset-bottom) + 40px)); background: rgba(126,231,135,.24); }
+  #bk { width: 74px; height: 74px; right: 118px; bottom: max(18px, env(safe-area-inset-bottom)); background: rgba(239,68,68,.24); }
+  #bh { width: 52px; height: 52px; right: 22px; bottom: max(18px, env(safe-area-inset-bottom)); font-size: 15px; }
+  #bv { width: 52px; height: 52px; right: 202px; bottom: max(18px, env(safe-area-inset-bottom)); font-size: 15px; }
+
+  #tools { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(10px, env(safe-area-inset-bottom));
+    display: flex; gap: 6px; z-index: 5; }
+  .tool {
+    padding: 6px 10px; border-radius: 8px; font-size: 11px; font-weight: 600;
+    background: rgba(10,14,20,.6); border: 1px solid rgba(255,255,255,.18); color: #e6edf3;
+  }
+  .tool.on { background: rgba(126,231,135,.28); border-color: #7ee787; }
+
+  /* ---------------- start screen ---------------- */
+  #start {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; text-align: center; padding: 24px;
+    background: radial-gradient(120% 90% at 50% 0%, #1b2a3a 0%, #0d1117 70%); z-index: 20;
+  }
+  #start h1 { font-size: 34px; margin: 0 0 4px; letter-spacing: -.5px; }
+  #start .sub { color: #8b949e; font-size: 13px; margin-bottom: 22px; }
+  #start .keys { color: #8b949e; font-size: 12px; line-height: 1.9; margin-bottom: 22px; }
+  #start .keys b { color: #e6edf3; }
+  #go {
+    padding: 14px 40px; border-radius: 12px; border: none; cursor: pointer;
+    background: #2ea043; color: #fff; font-size: 17px; font-weight: 700;
+    font-family: inherit; box-shadow: 0 6px 22px rgba(46,160,67,.35);
+  }
+  #go:active { transform: scale(.97); }
+  #err { color: #f85149; font-size: 13px; margin-top: 14px; max-width: 90%; display: none; }
+  #loading { color: #8b949e; font-size: 13px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div id="speed">0<small>km/h</small></div>
+  <div id="rpmbar"><div id="rpmfill"></div></div>
+  <div class="row"><span>গিয়ার</span><b id="gear">N</b></div>
+  <div class="row"><span>স্কোর</span><b id="score">0</b></div>
+  <div class="row"><span>ভাড়া</span><b id="money">৳0</b></div>
+  <div class="row"><span>যাত্রী</span><b id="pax">0</b></div>
+  <div class="row"><span>ল্যাপ</span><b id="lap">0</b></div>
+  <div class="row"><span>FPS</span><b id="fps">–</b></div>
+</div>
+
+<div id="stops">
+  <div class="nm" id="stopName">—</div>
+  <div id="stopDist">—</div>
+</div>
+
+<div id="toast"></div>
+
+<div id="pad">
+  <div class="btn" id="bl">◀</div>
+  <div class="btn" id="br">▶</div>
+  <div class="btn" id="bg">▲</div>
+  <div class="btn" id="bk">▼</div>
+  <div class="btn" id="bh">🔊</div>
+  <div class="btn" id="bv">R</div>
+</div>
+
+<div id="tools">
+  <div class="tool on" id="tAssist">অ্যাসিস্ট</div>
+  <div class="tool" id="tCam">ক্যামেরা</div>
+  <div class="tool" id="tQual">গ্রাফিক্স: auto</div>
+  <div class="tool" id="tSound">সাউন্ড</div>
+</div>
+
+<div id="start">
+  <h1>🚌 BD Bus Sim</h1>
+  <div class="sub">বাংলাদেশ থিমের বাস সিমুলেটর — ডেমো বিল্ড</div>
+  <div id="loading">ইঞ্জিন লোড হচ্ছে…</div>
+  <div class="keys" id="keys" style="display:none">
+    <b>W / ↑</b> গ্যাস &nbsp; <b>S / ↓</b> ব্রেক &nbsp; <b>A D / ← →</b> স্টিয়ারিং<br>
+    <b>Space</b> হ্যান্ডব্রেক &nbsp; <b>R</b> রিভার্স &nbsp; <b>H</b> হর্ন &nbsp; <b>C</b> ক্যামেরা<br>
+    মোবাইলে স্ক্রিনের বাটন ব্যবহার করুন
+  </div>
+  <button id="go" style="display:none">চালানো শুরু করুন</button>
+  <div id="err"></div>
+</div>
+
+<script src="babylon.js"></script>
+<script src="js/core.js"></script>
+<script src="js/graphics.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var errBox = $('err');
+
+  function fail(msg) {
+    $('loading').style.display = 'none';
+    errBox.style.display = 'block';
+    errBox.textContent = msg;
+  }
+
+  if (typeof BABYLON === 'undefined') { fail('Babylon.js লোড হয়নি। ইন্টারনেট সংযোগ পরীক্ষা করে আবার লোড করুন।'); return; }
+  if (typeof BusSim === 'undefined' || typeof BusGfx === 'undefined') { fail('গেম ফাইল লোড হয়নি (js/core.js, js/graphics.js)।'); return; }
+
+  /* ------------------------------------------------------- engine + scene */
+  var canvas = $('c');
+  var engine;
+  try {
+    engine = new BABYLON.Engine(canvas, true, { adaptToDeviceRatio: true, antialias: true, powerPreference: 'high-performance' }, true);
+  } catch (e) { fail('WebGL চালু করা যায়নি: ' + e.message); return; }
+
+  var store = {
+    get: function (k, d) { try { var v = localStorage.getItem('bdbussim.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set: function (k, v) { try { localStorage.setItem('bdbussim.' + k, JSON.stringify(v)); } catch (e) {} }
+  };
+
+  var quality = store.get('quality', 'med');
+  var autoQuality = store.get('autoQuality', true);
+  var assist = store.get('assist', 1) ? 0.9 : 0;
+  var camMode = 1;
+
+  var world = BusSim.buildWorld(20261108, {});
+  var ctx = BusGfx.createScene(engine, { quality: quality });
+  var gfx = BusGfx.buildWorld(ctx.scene, world, { quality: quality });
+  var updater = BusGfx.makeUpdater(ctx, world, gfx, {});
+  var bus = BusSim.createBus(world.route);
+  var traffic = BusSim.spawnTraffic(world, 8);
+  engine.setHardwareScalingLevel(ctx.quality.scale);
+
+  /* ------------------------------------------------------------- toasts */
+  var toastEl = $('toast'), toastT = 0;
+  function toast(msg, ms) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('on');
+    toastT = (ms || 2200) / 1000;
+  }
+
+  /* ------------------------------------------------------------- audio */
+  var audio = null;
+  function initAudio() {
+    if (audio) return audio;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      var ac = new AC();
+      var master = ac.createGain(); master.gain.value = 0.0; master.connect(ac.destination);
+
+      // engine: two detuned saw oscillators through a lowpass, pitch follows rpm
+      var o1 = ac.createOscillator(), o2 = ac.createOscillator();
+      o1.type = 'sawtooth'; o2.type = 'square';
+      var lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420; lp.Q.value = 3;
+      var eg = ac.createGain(); eg.gain.value = 0.5;
+      o1.connect(lp); o2.connect(lp); lp.connect(eg); eg.connect(master);
+      o1.start(); o2.start();
+
+      // road/wind noise
+      var len = ac.sampleRate * 2, buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
+      for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * 0.35;
+      var noise = ac.createBufferSource(); noise.buffer = buf; noise.loop = true;
+      var nf = ac.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 700; nf.Q.value = 0.7;
+      var ng = ac.createGain(); ng.gain.value = 0.0;
+      noise.connect(nf); nf.connect(ng); ng.connect(master);
+      noise.start();
+
+      audio = { ac: ac, master: master, o1: o1, o2: o2, lp: lp, eg: eg, ng: ng, on: false };
+      return audio;
+    } catch (e) { console.warn('audio unavailable', e); return null; }
+  }
+  function horn() {
+    if (!audio || !audio.on) return;
+    try {
+      var ac = audio.ac, t = ac.currentTime;
+      [330, 415].forEach(function (f, i) {
+        var o = ac.createOscillator(), g = ac.createGain();
+        o.type = 'square'; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.22, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+        o.connect(g); g.connect(audio.master);
+        o.start(t); o.stop(t + 0.6);
+      });
+    } catch (e) {}
+  }
+  function crashSound() {
+    if (!audio || !audio.on) return;
+    try {
+      var ac = audio.ac, t = ac.currentTime;
+      var len = ac.sampleRate * 0.4, b = ac.createBuffer(1, len, ac.sampleRate), dd = b.getChannelData(0);
+      for (var i = 0; i < len; i++) dd[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+      var s = ac.createBufferSource(); s.buffer = b;
+      var g = ac.createGain(); g.gain.value = 0.5;
+      s.connect(g); g.connect(audio.master); s.start(t);
+    } catch (e) {}
+  }
+
+  /* -------------------------------------------------------------- input */
+  var keys = {}, touch = { steer: 0, thr: 0, brk: 0, hb: false, rev: false };
+  var isTouch = window.matchMedia && !window.matchMedia('(pointer: fine)').matches;
+
+  window.addEventListener('keydown', function (e) {
+    keys[e.code] = true;
+    if (e.code === 'KeyH') horn();
+    if (e.code === 'KeyC') cycleCam();
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].indexOf(e.code) >= 0) e.preventDefault();
+  }, { passive: false });
+  window.addEventListener('keyup', function (e) { keys[e.code] = false; });
+  window.addEventListener('blur', function () { keys = {}; touch.steer = 0; touch.thr = 0; touch.brk = 0; });
+
+  function bindBtn(id, down, up) {
+    var el = $(id);
+    if (!el) return;
+    var on = function (e) { e.preventDefault(); el.classList.add('act'); down(); };
+    var off = function (e) { if (e) e.preventDefault(); el.classList.remove('act'); if (up) up(); };
+    el.addEventListener('pointerdown', on);
+    el.addEventListener('pointerup', off);
+    el.addEventListener('pointercancel', off);
+    el.addEventListener('pointerleave', off);
+  }
+  if (isTouch) {
+    $('pad').classList.add('on');
+    bindBtn('bl', function () { touch.steer = -1; }, function () { if (touch.steer === -1) touch.steer = 0; });
+    bindBtn('br', function () { touch.steer = 1; }, function () { if (touch.steer === 1) touch.steer = 0; });
+    bindBtn('bg', function () { touch.thr = 1; }, function () { touch.thr = 0; });
+    bindBtn('bk', function () { touch.brk = 1; }, function () { touch.brk = 0; });
+    bindBtn('bh', function () { horn(); });
+    bindBtn('bv', function () { touch.rev = !touch.rev; }, function () { $('bv').classList.toggle('on', touch.rev); });
+  }
+
+  function cycleCam() {
+    camMode = camMode >= 3 ? 1 : camMode + 1;
+    toast('ক্যামেরা ' + camMode, 900);
+  }
+  $('tCam').addEventListener('click', cycleCam);
+  $('tAssist').addEventListener('click', function () {
+    assist = assist > 0 ? 0 : 0.9;
+    store.set('assist', assist > 0 ? 1 : 0);
+    this.classList.toggle('on', assist > 0);
+    toast(assist > 0 ? 'স্টিয়ারিং অ্যাসিস্ট চালু' : 'অ্যাসিস্ট বন্ধ', 1400);
+  });
+  $('tQual').addEventListener('click', function () {
+    autoQuality = false;
+    var order = ['low', 'med', 'high'];
+    var i = (order.indexOf(ctx.qualityName) + 1) % order.length;
+    setQuality(order[i]);
+    store.set('quality', order[i]); store.set('autoQuality', false);
+    toast('গ্রাফিক্স: ' + order[i], 1200);
+  });
+  $('tSound').addEventListener('click', function () {
+    var a = initAudio();
+    if (!a) { toast('সাউন্ড সাপোর্ট নেই', 1400); return; }
+    a.on = !a.on;
+    if (a.on && a.ac.state === 'suspended') a.ac.resume();
+    a.master.gain.value = a.on ? 0.5 : 0.0;
+    this.classList.toggle('on', a.on);
+    store.set('sound', a.on ? 1 : 0);
+  });
+  $('tAssist').classList.toggle('on', assist > 0);
+
+  function setQuality(name) {
+    var old = ctx;
+    ctx = BusGfx.createScene(engine, { quality: name });
+    gfx = BusGfx.buildWorld(ctx.scene, world, { quality: name });
+    updater = BusGfx.makeUpdater(ctx, world, gfx, {});
+    engine.setHardwareScalingLevel(ctx.quality.scale);
+    try { old.scene.dispose(); } catch (e) {}
+    $('tQual').textContent = 'গ্রাফিক্স: ' + (autoQuality ? 'auto/' : '') + name;
+  }
+
+  /* ------------------------------------------------------- fixed timestep */
+  var DT = 1 / 120, acc = 0, last = performance.now();
+  var fpsAcc = 0, fpsN = 0, fpsTimer = 0, qTimer = 0, fpsShown = 0;
+  var started = false, elapsed = 0;
+
+  function readInput() {
+    var thr = touch.thr || ((keys.KeyW || keys.ArrowUp) ? 1 : 0);
+    var brk = touch.brk || ((keys.KeyS || keys.ArrowDown) ? 1 : 0);
+    var st = touch.steer + ((keys.KeyA || keys.ArrowLeft) ? -1 : 0) + ((keys.KeyD || keys.ArrowRight) ? 1 : 0);
+    var rev = touch.rev || !!keys.KeyR;
+    return {
+      throttle: BusSim.helpers.clamp(thr, 0, 1),
+      brake: BusSim.helpers.clamp(brk, 0, 1),
+      steer: BusSim.helpers.clamp(st, -1, 1),
+      handbrake: !!keys.Space,
+      reverse: rev,
+      assist: assist
+    };
+  }
+
+  function handleEvents(evts) {
+    for (var i = 0; i < evts.length; i++) {
+      var e = evts[i];
+      if (e.type === 'crash') { toast('💥 ধাক্কা! -১২', 1600); crashSound(); if (navigator.vibrate) navigator.vibrate(120); }
+      else if (e.type === 'board') { toast('🧍 যাত্রী উঠলেন (' + e.onboard + ')', 1100); }
+      else if (e.type === 'depart') { toast('✅ ' + e.stop.name + ' ছেড়ে দিলাম', 1500); }
+      else if (e.type === 'miss') { toast('⚠️ ' + e.stop.name + ' মিস -৮', 1800); }
+      else if (e.type === 'lap') { toast('🏁 ল্যাপ ' + e.laps + ' শেষ!', 2200); }
+    }
+  }
+
+  function frame() {
+    var now = performance.now();
+    var dt = (now - last) / 1000;
+    last = now;
+    if (dt > 0.25) dt = 0.25;                    // tab was hidden: don't explode
+
+    if (started) {
+      acc += dt;
+      var steps = 0;
+      var input = readInput();
+      while (acc >= DT && steps < 8) {
+        BusSim.stepTraffic(traffic, world.route, DT);
+        handleEvents(BusSim.step(bus, world, traffic, input, DT));
+        acc -= DT; steps++; elapsed += DT;
+      }
+      if (acc > DT * 8) acc = 0;
+    }
+
+    updater.update(bus, traffic, Math.min(dt, 0.1), camMode, bus.crashTimer);
+    ctx.scene.render();
+
+    /* audio follows the engine */
+    if (audio && audio.on) {
+      var f = 42 + (bus.rpm / BusSim.CFG.redline) * 150;
+      audio.o1.frequency.setTargetAtTime(f, audio.ac.currentTime, 0.05);
+      audio.o2.frequency.setTargetAtTime(f * 0.5, audio.ac.currentTime, 0.05);
+      audio.lp.frequency.setTargetAtTime(300 + bus.rpm * 0.35, audio.ac.currentTime, 0.08);
+      audio.eg.gain.setTargetAtTime(0.16 + bus.engineLoad * 0.3, audio.ac.currentTime, 0.1);
+      audio.ng.gain.setTargetAtTime(Math.min(0.16, bus.v * 0.008), audio.ac.currentTime, 0.2);
+    }
+
+    /* HUD (throttled) */
+    fpsAcc += dt; fpsN++;
+    if (fpsAcc > 0.4) {
+      fpsShown = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0;
+      paintHud();
+    }
+    if (toastT > 0) { toastT -= dt; if (toastT <= 0) toastEl.classList.remove('on'); }
+
+    /* adaptive quality */
+    if (autoQuality && started) {
+      qTimer += dt;
+      if (qTimer > 4) {
+        qTimer = 0;
+        var f2 = engine.getFps();
+        if (f2 < 26 && ctx.qualityName !== 'low') { setQuality('low'); toast('গ্রাফিক্স কমানো হলো (FPS কম)', 1600); }
+        else if (f2 > 55 && ctx.qualityName === 'low') setQuality('med');
+        else if (f2 > 58 && ctx.qualityName === 'med') setQuality('high');
+      }
+    }
+  }
+
+  function paintHud() {
+    $('speed').innerHTML = Math.round(Math.abs(bus.v) * 3.6) + '<small>km/h</small>';
+    $('gear').textContent = bus.gear === 0 ? 'R' : (Math.abs(bus.v) < 0.3 ? 'N' : bus.gear);
+    $('rpmfill').style.width = (100 * (bus.rpm - BusSim.CFG.idleRpm) / (BusSim.CFG.redline - BusSim.CFG.idleRpm)).toFixed(0) + '%';
+    $('score').textContent = Math.round(bus.score);
+    $('money').textContent = '৳' + bus.money;
+    $('pax').textContent = bus.passengers;
+    $('lap').textContent = bus.laps;
+    $('fps').textContent = fpsShown;
+    var d = bus.nextStopDist;
+    if (bus.atStop) {
+      $('stopName').textContent = bus.atStop.name;
+      var ad = Math.abs(d);
+      $('stopDist').textContent = ad < 14 ? (bus.doorOpen ? 'দরজা খোলা — যাত্রী উঠছেন' : 'থামুন! ' + ad.toFixed(0) + ' মি') : (d > 0 ? ad.toFixed(0) + ' মি সামনে' : 'পেছনে ' + ad.toFixed(0) + ' মি');
+      $('stops').style.borderColor = bus.doorOpen ? '#7ee787' : (ad < 14 ? '#ffd166' : 'rgba(255,255,255,.12)');
+    }
+  }
+
+  /* --------------------------------------------------------------- start */
+  $('loading').style.display = 'none';
+  $('go').style.display = 'block';
+  $('keys').style.display = 'block';
+  if (store.get('sound', 0)) $('tSound').classList.add('on');
+
+  $('go').addEventListener('click', function () {
+    $('start').style.display = 'none';
+    started = true;
+    last = performance.now();
+    engine.resize();
+    var a = initAudio();
+    if (a && store.get('sound', 0)) {
+      a.on = true;
+      if (a.ac.state === 'suspended') a.ac.resume();
+      a.master.gain.value = 0.5;
+    }
+    toast(isTouch ? '▲ গ্যাস — ◀ ▶ স্টিয়ারিং' : 'W দিয়ে শুরু করুন', 2600);
+  });
+
+  window.addEventListener('resize', function () { engine.resize(); });
+  window.addEventListener('orientationchange', function () { setTimeout(function () { engine.resize(); }, 250); });
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+
+  $('tQual').textContent = 'গ্রাফিক্স: ' + (autoQuality ? 'auto/' : '') + quality;
+  engine.runRenderLoop(frame);
+  toast('রুট: ' + (world.route.total / 1000).toFixed(2) + ' কিমি লুপ', 2600);
+})();
+</script>
+</body>
+</html>
