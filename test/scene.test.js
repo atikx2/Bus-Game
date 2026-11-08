@@ -37,6 +37,8 @@ t('buildWorld creates road, sidewalks, ground, bus and stops', () => {
   const m = ctx.gfx.meshes;
   assert.ok(m.road && m.road.getTotalVertices() > 100, 'road verts=' + (m.road && m.road.getTotalVertices()));
   assert.ok(m.walkL && m.walkR, 'no sidewalks');
+  assert.ok(m.median && m.medianFaceL && m.medianFaceR, 'no raised divided-road median');
+  assert.ok(m.kerbL && m.kerbR, 'no raised road kerbs');
   assert.ok(m.ground, 'no ground');
   assert.ok(m.bus && m.bus.root, 'no bus');
   assert.strictEqual(m.stops.length, 6, 'stops=' + m.stops.length);
@@ -57,6 +59,15 @@ t('bus has 4 wheels, 2 steerable pivots and glass', () => {
   const names = b.body.getChildMeshes().map(m => m.name);
   assert.ok(names.includes('glassL') && names.includes('wind'), 'missing glass: ' + names.join(','));
   assert.ok(b.length > 10 && b.width > 2 && b.height > 2.5, 'bus dims wrong');
+});
+
+t('CNG traffic gets a cabin, glazing, grille and three wheels', () => {
+  const cng = BusGfx.buildTrafficMesh(ctx.ctx.scene, ctx.gfx.mats,
+    { id: 99, kind: 'cng', wid: 0.9, hgt: 1.5, len: 2.7 });
+  assert.ok(cng.details.length >= 6, 'CNG detail meshes=' + cng.details.length);
+  assert.ok(cng.details.every(m => m.material), 'CNG detail missing a material');
+  assert.ok(cng.details.some(m => m.name.indexOf('cngWind') === 0), 'no windshield');
+  assert.strictEqual(cng.details.filter(m => m.name.indexOf('cngWheel') === 0).length, 3);
 });
 
 t('PBR materials are configured (metallic paint + clearcoat)', () => {

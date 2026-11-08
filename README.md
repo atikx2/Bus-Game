@@ -70,7 +70,7 @@ cd android && ./gradlew assembleDebug
 - **ড্রাইভিং মডেল**: ডিজেল টর্ক কার্ভ + ৫ স্পিড অটো গিয়ারবক্স + RPM, kinematic bicycle model, grip limit (understeer), ইঞ্জিন ব্রেকিং, সার্ভিস/হ্যান্ডব্রেক, রিভার্স গিয়ার
 - **স্টিয়ারিং অ্যাসিস্ট**: curvature look-ahead + lane hold + traffic এর জন্য auto-brake (মোবাইলে চালানো সহজ করার জন্য; বন্ধ করা যায়)
 - **ট্রাফিক**: car / CNG / রিকশা / বাস / ট্রাক, car-following logic, সংঘর্ষ
-- **গ্রাফিক্স**: PBR material (clearcoat পেইন্ট, ধাতু, কাচ), directional sun + shadow, procedural IBL, fog, sky gradient, instanced বিল্ডিং/গাছ/ল্যাম্পপোস্ট, post-processing (FXAA + bloom)
+- **গ্রাফিক্স**: আপনার boulevard reference-এর ধাঁচে divided road + raised concrete median, দুই দিকের carriageway, asphalt grain/crack texture, kerb, lane marking, PBR material, shadow, clustered avenue trees, cross-arm streetlight, আর procedural CNG/রিকশা; কোনো bus-game asset কপি নয়
 - **অ্যাডাপটিভ কোয়ালিটি**: FPS কমলে নিজেই shadow/graphics কমায় (low/med/high)
 - **সাউন্ড**: procedural engine note (RPM অনুযায়ী), হর্ন, ক্রাশ — কোনো external asset নেই
 - **কন্ট্রোল**: keyboard (WASD/arrows, Space, R, H, C) + মোবাইল টাচ বাটন

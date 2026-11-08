@@ -96,6 +96,31 @@
     } catch (e) { console.warn('gradient texture failed:', e.message); return null; }
   }
 
+  function asphaltTexture(scene) {
+    if (!hasCanvas) return null;
+    try {
+      var S = 512, t = new BABYLON.DynamicTexture('asphaltTexture', { width: S, height: S }, scene, false);
+      var c = t.getContext(), seed = 9731;
+      function rand() { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
+      c.fillStyle = '#393b3a'; c.fillRect(0, 0, S, S);
+      // Fine aggregate speckle, softly mottled patches and hairline wear.
+      for (var i = 0; i < 14500; i++) {
+        var r = 0.35 + rand() * 1.5, v = Math.floor(48 + rand() * 34);
+        c.fillStyle = 'rgba(' + v + ',' + v + ',' + (v + 1) + ',' + (0.08 + rand() * 0.2) + ')';
+        c.beginPath(); c.arc(rand() * S, rand() * S, r, 0, Math.PI * 2); c.fill();
+      }
+      for (var k = 0; k < 34; k++) {
+        var x = rand() * S, y = rand() * S, len = 8 + rand() * 70;
+        c.strokeStyle = 'rgba(20,22,21,' + (0.12 + rand() * 0.18) + ')';
+        c.lineWidth = 0.5 + rand(); c.beginPath(); c.moveTo(x, y);
+        for (var j = 0; j < 4; j++) { x += (rand() - 0.5) * 12; y += len / 4; c.lineTo(x, y); }
+        c.stroke();
+      }
+      t.update(); t.wrapU = BABYLON.Texture.WRAP_ADDRESSMODE; t.wrapV = BABYLON.Texture.WRAP_ADDRESSMODE;
+      t.hasAlpha = false; return t;
+    } catch (e) { console.warn('asphalt texture failed:', e.message); return null; }
+  }
+
   function windowTexture(scene, variant) {
     if (!hasCanvas) return null;
     try {
@@ -214,17 +239,55 @@
   function buildTrafficMesh(scene, mats, v) {
     var root = new BABYLON.TransformNode('car' + v.id, scene);
     var mat = mats.traffic[v.kind] || mats.traffic.car;
+    var glass = mats.trafficGlass || mats.glass;
+    var width = v.wid * 2;
     var b = BABYLON.MeshBuilder.CreateBox('cb' + v.id,
-      { width: v.wid * 2, height: v.hgt, depth: v.len }, scene);
+      { width: width, height: v.hgt, depth: v.len }, scene);
     b.position.y = v.hgt / 2 + 0.25;
     b.material = mat;
     b.parent = root;
     var roof = BABYLON.MeshBuilder.CreateBox('cr' + v.id,
-      { width: v.wid * 2 - 0.2, height: 0.22, depth: v.len * 0.55 }, scene);
+      { width: width - 0.2, height: 0.22, depth: v.len * 0.55 }, scene);
     roof.position.set(0, v.hgt + 0.3, -v.len * 0.08);
     roof.material = mats.dark;
     roof.parent = root;
-    return { root: root, body: b, roof: roof };
+    var details = [];
+    // Original compact Dhaka CNG auto-rickshaw: open lower chassis, green cabin,
+    // dark windscreen, bright canopy and three visible wheels.
+    if (v.kind === 'cng' || v.kind === 'rickshaw') {
+      var cabin = BABYLON.MeshBuilder.CreateBox('cngCabin' + v.id,
+        { width: width * 0.84, height: v.hgt * 0.54, depth: v.len * 0.57 }, scene);
+      cabin.position.set(0, v.hgt * 0.61 + 0.22, -v.len * 0.01);
+      cabin.material = mat; cabin.parent = root; details.push(cabin);
+      roof.scaling.set(0.88, 1, 1.12);
+      roof.position.set(0, v.hgt + 0.55, -v.len * 0.01);
+      roof.material = v.kind === 'cng' ? mat : mats.busStripe;
+      var wind = BABYLON.MeshBuilder.CreateBox('cngWind' + v.id,
+        { width: width * 0.66, height: v.hgt * 0.33, depth: 0.045 }, scene);
+      wind.position.set(0, v.hgt * 0.68 + 0.28, v.len * 0.36);
+      wind.material = glass; wind.parent = root; details.push(wind);
+      var backGlass = BABYLON.MeshBuilder.CreateBox('cngRearGlass' + v.id,
+        { width: width * 0.58, height: v.hgt * 0.27, depth: 0.04 }, scene);
+      backGlass.position.set(0, v.hgt * 0.69 + 0.25, -v.len * 0.34);
+      backGlass.material = glass; backGlass.parent = root; details.push(backGlass);
+      var grille = BABYLON.MeshBuilder.CreateBox('cngGrille' + v.id,
+        { width: width * 0.35, height: 0.16, depth: 0.045 }, scene);
+      grille.position.set(0, 0.48, v.len * 0.51);
+      grille.material = mats.dark; grille.parent = root; details.push(grille);
+      var wheelSpots = [
+        { x: 0, z: v.len * 0.31 },
+        { x: -width * 0.39, z: -v.len * 0.27 },
+        { x: width * 0.39, z: -v.len * 0.27 }
+      ];
+      wheelSpots.forEach(function (wp, wi) {
+        var wh = BABYLON.MeshBuilder.CreateCylinder('cngWheel' + v.id + '_' + wi,
+          { diameter: Math.max(0.42, v.hgt * 0.38), height: 0.18, tessellation: 12 }, scene);
+        wh.rotation.z = Math.PI / 2;
+        wh.position.set(wp.x, 0.34, wp.z);
+        wh.material = mats.tire; wh.parent = root; details.push(wh);
+      });
+    }
+    return { root: root, body: b, roof: roof, details: details };
   }
 
   /* =========================================================================
@@ -237,7 +300,9 @@
     var mats = {}, meshes = {};
 
     /* ---- materials ---------------------------------------------------- */
-    mats.asphalt = pbr(scene, 'asphalt', { color: new BABYLON.Color3(0.13, 0.13, 0.14), roughness: 0.96, metallic: 0 });
+    mats.asphalt = pbr(scene, 'asphalt', { color: new BABYLON.Color3(0.45, 0.45, 0.44), roughness: 0.96, metallic: 0 });
+    var asphaltTex = asphaltTexture(scene);
+    if (asphaltTex) { asphaltTex.uScale = 2.0; asphaltTex.vScale = Math.max(24, route.total / 12); mats.asphalt.albedoTexture = asphaltTex; }
     mats.walk = pbr(scene, 'walk', { color: new BABYLON.Color3(0.46, 0.44, 0.41), roughness: 0.92 });
     mats.grass = pbr(scene, 'grass', { color: new BABYLON.Color3(0.19, 0.28, 0.15), roughness: 1 });
     mats.line = pbr(scene, 'line', { color: new BABYLON.Color3(0.85, 0.85, 0.8), roughness: 0.6, emissive: new BABYLON.Color3(0.12, 0.12, 0.1) });
@@ -246,6 +311,7 @@
     mats.busRoof = pbr(scene, 'busRoof', { color: new BABYLON.Color3(0.86, 0.87, 0.85), roughness: 0.45, metallic: 0.3 });
     mats.busStripe = pbr(scene, 'busStripe', { color: new BABYLON.Color3(0.93, 0.72, 0.13), roughness: 0.35, metallic: 0.6 });
     mats.glass = pbr(scene, 'glass', { color: new BABYLON.Color3(0.06, 0.09, 0.12), roughness: 0.06, metallic: 0.95, alpha: 0.42 });
+    mats.trafficGlass = pbr(scene, 'trafficGlass', { color: new BABYLON.Color3(0.08, 0.16, 0.18), roughness: 0.16, metallic: 0.35, alpha: 0.82 });
     mats.tire = pbr(scene, 'tire', { color: new BABYLON.Color3(0.06, 0.06, 0.07), roughness: 0.88 });
     mats.rim = pbr(scene, 'rim', { color: new BABYLON.Color3(0.72, 0.73, 0.75), roughness: 0.25, metallic: 1 });
     mats.headlight = pbr(scene, 'hl', { color: new BABYLON.Color3(0.9, 0.95, 1), roughness: 0.1, emissive: new BABYLON.Color3(1, 0.98, 0.85) });
@@ -296,22 +362,46 @@
       m.receiveShadows = true;
       return m;
     }
+    function curbFace(name, lat, y0, y1, mat) {
+      var low = [], high = [];
+      for (var i = 0; i <= route.n; i++) {
+        var p = BusSim.at(route, i * route.step, lat);
+        low.push(new BABYLON.Vector3(p.x, y0, p.z));
+        high.push(new BABYLON.Vector3(p.x, y1, p.z));
+      }
+      var m = BABYLON.MeshBuilder.CreateRibbon(name, {
+        pathArray: [low, high], sideOrientation: BABYLON.Mesh.DOUBLESIDE, updatable: false
+      }, scene);
+      m.material = mat; m.receiveShadows = true; return m;
+    }
     meshes.road = ribbon('road', -HW, HW, 0, mats.asphalt);
     meshes.walkL = ribbon('walkL', HW, WW, 0.16, mats.walk);
     meshes.walkR = ribbon('walkR', -WW, -HW, 0.16, mats.walk);
 
+    // Raised central concrete divider: two physically separate carriageways,
+    // like the user's Dhaka boulevard reference. Bright edge strips catch sun.
+    var medHalf = 0.82;
+    meshes.median = ribbon('raisedMedian', -medHalf, medHalf, 0.27, mats.walk);
+    meshes.medianFaceL = curbFace('medianFaceL', medHalf, 0, 0.27, mats.walk);
+    meshes.medianFaceR = curbFace('medianFaceR', -medHalf, 0, 0.27, mats.walk);
+    meshes.medianEdgeL = ribbon('medianEdgeL', medHalf - 0.12, medHalf, 0.31, mats.line);
+    meshes.medianEdgeR = ribbon('medianEdgeR', -medHalf, -medHalf + 0.12, 0.31, mats.line);
+    meshes.kerbL = ribbon('kerbL', HW - 0.12, HW, 0.22, mats.walk);
+    meshes.kerbR = ribbon('kerbR', -HW, -HW + 0.12, 0.22, mats.walk);
+
     /* ---- lane markings -------------------------------------------------- */
     if (q.dashes) {
-      var dashSrc = BABYLON.MeshBuilder.CreateBox('dash', { width: 0.18, height: 0.02, depth: 3.2 }, scene);
+      var dashSrc = BABYLON.MeshBuilder.CreateBox('dash', { width: 0.16, height: 0.025, depth: 3.0 }, scene);
       dashSrc.material = mats.line;
       dashSrc.setEnabled(false);
       var dashes = [];
       for (var d = 0; d < route.total; d += 8) {
-        var dp = BusSim.at(route, d, 0);
-        var inst = dashSrc.createInstance('dash' + d);
-        inst.position.set(dp.x, 0.012, dp.z);
-        inst.rotation.y = dp.hdg;
-        dashes.push(inst);
+        var dp = BusSim.at(route, d, 4.95);
+        var inst = dashSrc.createInstance('dashR' + d);
+        inst.position.set(dp.x, 0.022, dp.z); inst.rotation.y = dp.hdg; dashes.push(inst);
+        var dm = BusSim.at(route, d, -4.95);
+        var instL = dashSrc.createInstance('dashL' + d);
+        instL.position.set(dm.x, 0.022, dm.z); instL.rotation.y = dm.hdg; dashes.push(instL);
       }
       meshes.dashSrc = dashSrc; meshes.dashes = dashes;
     }
@@ -347,10 +437,16 @@
       var t1 = trunkSrc.createInstance('t' + ti);
       t1.position.set(tp.x, tr.h * 0.3, tp.z);
       t1.scaling.set(1, tr.h * 0.6, 1);
-      var t2 = leafSrc.createInstance('l' + ti);
-      t2.position.set(tp.x, tr.h * 0.78, tp.z);
-      t2.scaling.set(tr.r * 2, tr.r * 1.7, tr.r * 2);
-      trees.push(t1, t2);
+      // Clustered crowns read as leafy avenue trees rather than isolated balls.
+      var crownOffsets = [[0, 0], [0.62, 0.22], [-0.58, -0.18]];
+      for (var ci = 0; ci < crownOffsets.length; ci++) {
+        var t2 = leafSrc.createInstance('l' + ti + '_' + ci);
+        var ox = crownOffsets[ci][0] * tr.r, oz = crownOffsets[ci][1] * tr.r;
+        t2.position.set(tp.x + ox, tr.h * (ci === 0 ? 0.78 : 0.72), tp.z + oz);
+        t2.scaling.set(tr.r * (ci === 0 ? 2 : 1.35), tr.r * (ci === 0 ? 1.45 : 1.05), tr.r * (ci === 0 ? 1.8 : 1.35));
+        trees.push(t2);
+      }
+      trees.push(t1);
     }
     meshes.trunkSrc = trunkSrc; meshes.leafSrc = leafSrc; meshes.trees = trees;
 
@@ -359,17 +455,21 @@
     poleSrc.material = mats.pole; poleSrc.setEnabled(false);
     var glowSrc = BABYLON.MeshBuilder.CreateSphere('glow', { diameter: 0.5, segments: 5 }, scene);
     glowSrc.material = mats.lampGlow; glowSrc.setEnabled(false);
+    var armSrc = BABYLON.MeshBuilder.CreateBox('lampArm', { width: 5.0, height: 0.12, depth: 0.14 }, scene);
+    armSrc.material = mats.pole; armSrc.setEnabled(false);
     var lamps = [];
     for (var li = 0; li < world.lamps.length; li++) {
       var lp0 = world.lamps[li];
       var lp = BusSim.at(route, lp0.s, lp0.lat);
       var p1 = poleSrc.createInstance('p' + li);
       p1.position.set(lp.x, 3.5, lp.z);
+      var arm = armSrc.createInstance('la' + li);
+      arm.position.set(lp.x, 6.8, lp.z); arm.rotation.y = lp.hdg;
       var p2 = glowSrc.createInstance('g' + li);
-      p2.position.set(lp.x, 6.9, lp.z);
-      lamps.push(p1, p2);
+      p2.position.set(lp.x, 7.05, lp.z);
+      lamps.push(p1, arm, p2);
     }
-    meshes.poleSrc = poleSrc; meshes.glowSrc = glowSrc; meshes.lamps = lamps;
+    meshes.poleSrc = poleSrc; meshes.glowSrc = glowSrc; meshes.armSrc = armSrc; meshes.lamps = lamps;
 
     /* ---- bus stops -------------------------------------------------------- */
     var stops = [];

@@ -15,10 +15,10 @@
   /* ------------------------------------------------------------------ config */
   var CFG = {
     step: 2,                 // route sample spacing (m)
-    roadHalfWidth: 4.0,      // asphalt half width (m) -> 8 m road, 2 lanes
-    walkHalfWidth: 6.2,      // sidewalk outer edge (m)
-    laneRight: 2.0,          // right-hand-drive lane centre (Bangladesh drives right)
-    laneLeft: -2.0,
+    roadHalfWidth: 9.0,      // divided boulevard visual/driveable width per side (m)
+    walkHalfWidth: 11.2,     // sidewalk outer edge (m)
+    laneRight: 3.2,          // left-hand traffic carriageway (Bangladesh)
+    laneLeft: -3.2,          // opposing carriageway, divided by a raised median
 
     mass: 9500,              // kg, loaded city bus
     wheelbase: 5.4,          // m
@@ -230,7 +230,7 @@
       });
     }
     for (var l = 30; l < route.total; l += 34) {
-      lamps.push({ s: l, lat: (Math.floor(l / 34) % 2 === 0 ? 1 : -1) * (WW - 0.2) });
+      lamps.push({ s: l, lat: 0 });
     }
 
     return {
