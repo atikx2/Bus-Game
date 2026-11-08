@@ -4,7 +4,9 @@ name: Deploy to GitHub Pages
 # Settings -> Pages -> Source = "GitHub Actions" korte hobe (ekbar).
 on:
   push:
-    branches: [main]
+    # 'arena/**' = agent/session branch gulo, jate main e merge na korei
+    # phone e preview link (https://atikx2.github.io/Bus-Game/) pawa jay.
+    branches: [main, 'arena/**']
   workflow_dispatch:
 
 permissions:
