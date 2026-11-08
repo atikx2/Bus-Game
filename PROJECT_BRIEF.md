@@ -28,6 +28,20 @@ Read this first if you are a new session. It explains what the user wants, what 
 - Sandbox check (2026-11-08): Node v22.22.3, npm 10.9.8, Python 3.11.2, git 2.39.5, gh 2.23.0. **No `java`, no Android SDK** → an APK cannot be built locally; the APK workflow can only be verified by running it on GitHub Actions.
 - Next step agreed with the user: CI/workflow first, then rebuild the Babylon game into `www/index.html`.
 
+### 2026-11-08 — APK workflow verified + game rebuilt
+
+- **APK CI verified green**: run `42403941876` → `conclusion=success`, artifact `bd-bus-sim-apk` = 3,367,553 bytes. Pages workflow has NOT run yet (only triggers on push to `main`); user still has to set Settings → Pages → Source = GitHub Actions.
+- **Game rebuilt from scratch** (the old prototype code was unrecoverable). New structure:
+  - `www/js/core.js` — pure-JS simulation, UMD. Route = closed harmonic loop, **1626 m**, min radius 68 m, sampled every 2 m. Bus physics: diesel torque curve, 5-speed auto gearbox + RPM, longitudinal force balance (drive/drag/rolling/brake/engine-brake), kinematic bicycle model with a grip limit (`mu*g`), off-road scrub, car-following constraint, collisions, 6 bus stops, fares, laps, scoring. Optional **assist** (curvature look-ahead + lane hold + auto-brake for traffic).
+  - `www/js/graphics.js` — Babylon presentation layer, UMD. PBR materials (clearcoat paint, metal, glass), sun + hemispheric + shadows, procedural IBL via `RawCubeTexture`, gradient sky dome, ribbon road/sidewalks/edge lines, instanced buildings/trees/lamps, procedural bus with steerable front wheels, chase camera with speed FOV + crash shake. Canvas-only textures are skipped when `document` is missing so it runs headless.
+  - `www/index.html` — HUD (speed/gear/RPM/score/fare/passengers/lap/FPS), Bangla toasts, touch buttons, keyboard, fixed 120 Hz timestep with accumulator, adaptive quality, WebAudio procedural engine/horn/crash.
+  - `www/babylon.js` — Babylon **8.34.0** UMD, vendored from npm (7.2 MB).
+- **Tests** (both run in Node, no browser needed):
+  - `node test/core.test.js` → **30 passed**
+  - `node test/scene.test.js` → **11 passed** (uses `BABYLON.NullEngine`)
+- Playability measured headlessly (assist on, throttle 0.85, 8 traffic vehicles): 0 crashes, 0 scrapes, lap ≈ 172 s, avg ≈ 34 km/h.
+- **Still unverified**: nothing has been looked at in a real browser/GPU. Visual quality, actual phone FPS and WebGL behaviour are unconfirmed.
+
 ---
 
 ## 1. The user's goal (in their words, paraphrased)
